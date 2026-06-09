@@ -118,7 +118,13 @@ For a buy order:
 
 The Phase 1 baseline produced the following result on 21-MAY-2012:
 
-text Training days found: 14 Number of buckets: 27 Market quantity on test date: 169,197,102 My VWAP: 131.210 Market VWAP: 131.142 Difference: 0.0674 Difference bps: 5.14 
+text Training days found: 14 
+Number of buckets: 27 
+Market quantity on test date: 169,197,102 
+My VWAP: 131.210 
+Market VWAP: 131.142 
+Difference: 0.0674 
+Difference bps: 5.14 
 
 Interpretation:
 
@@ -154,10 +160,6 @@ Contains:
 
 text target_shares, my_vwap, market_vwap, difference, difference_bps, result 
 
-## Repository Structure
-
-text include/   Config.h   Types.h   TimeUtils.h   CsvParser.h   MapReduceProcessor.h   VolumeProfile.h   VWAPExecution.h   OutputWriter.h  src/   main.cpp   TimeUtils.cpp   CsvParser.cpp   MapReduceProcessor.cpp   VolumeProfile.cpp   VWAPExecution.cpp   OutputWriter.cpp  data/   SPY_May_2012.csv        # local only, gitignored  outputs/   volume_profile.csv   execution_schedule_buy_first.csv   performance_summary.csv  docs/   data_access.md   phase1_baseline_notes.md  legacy/   original homework implementation files  notebooks/   result_analysis.ipynb   # planned  scripts/   utility scripts 
-
 ## Build Instructions
 
 From the repository root:
@@ -178,9 +180,6 @@ The program will generate CSV files under:
 
 text outputs/ 
 
-## Example Console Output
-
-text Training days found: 14 Market quantity on test date: 169197102 Market notional on test date: 2.21889e+10 Volume profile built. Training days used: 14 Total average quantity: 172623637 Number of buckets: 27 Buy-first execution schedule built. Target shares: 50000 Total scheduled order size: 50000 Performance summary computed. My VWAP: 131.21 Market VWAP: 131.142 Difference: 0.0674137 Difference bps: 5.14051 Buy execution result: worse than market VWAP. 
 
 ## Project Scope
 
