@@ -1,0 +1,26 @@
+# Build files
+build/
+*.o
+*.out
+*.exe
+
+# Local OS / editor files
+.DS_Store
+.vscode/
+.idea/
+
+# Large raw data
+data/*
+!data/.gitkeep
+
+# Generated outputs
+outputs/*.csv
+outputs/*.txt
+!outputs/.gitkeep
+
+# Python notebook checkpoints
+.ipynb_checkpoints/
+
+# Local config / secrets
+config.*
+.env
