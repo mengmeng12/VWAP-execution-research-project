@@ -1,0 +1,1 @@
+The raw SPY_May_2012.csv file is larger than 2GB and is not stored in this GitHub repository. It is hosted externally on AWS. 
