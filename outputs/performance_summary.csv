@@ -1,2 +1,2 @@
-target_shares,my_vwap,market_vwap,difference,difference_bps,result
-50000,131.20958975,131.14217602,0.06741373,5.14050721,worse_than_market_vwap_for_buy
+strategy,target_shares,my_vwap,market_vwap,difference,difference_bps,result
+buy_first,50000,131.20860894,131.14217602,0.06643292,5.06571751,worse_than_market_vwap_for_buy_order

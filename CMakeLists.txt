@@ -14,6 +14,7 @@ add_executable(vwap_execution
     src/MapReduceProcessor.cpp
     src/VolumeProfile.cpp
     src/VWAPExecution.cpp
+    src/ExecutionStrategy.cpp
     src/OutputWriter.cpp
 )
 

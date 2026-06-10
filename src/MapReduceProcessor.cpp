@@ -11,6 +11,7 @@
 #include <map>
 #include <set>
 #include <thread>
+#include <algorithm>
 
 
 /*
@@ -50,7 +51,15 @@ void initializeBucketMap(std::map<std::string, BucketAggregate>& bucketMap)
         bucketMap[bucketName] = BucketAggregate();
     }
 }
-
+/*
+ * Compare two bucket trades by GMT time.
+ *
+ * The raw file is split across mappers, so after reducer merges trades from
+ * different mapper chunks, we sort trades inside each bucket again.
+ */
+static bool compareBucketTradeByTime(const BucketTrade& a, const BucketTrade& b) {
+    return a.gmtTime < b.gmtTime;
+}
 
 /*
     Get file size in bytes.
@@ -212,34 +221,39 @@ MapResult runMapper(const Config& config,
 
             We use this date to simulate the VWAP execution.
         */
-        else if (isTestDate(trade.date, config.testDate))
+        else if (isTestDate(trade.date, config.testDate)) 
         {
             BucketAggregate& bucket = result.bucketMap[trade.nyBucket];
+            /*
+            * Phase 2:
+            * Store every test-date trade inside this bucket.
+            *
+            * Later, ExecutionStrategy will use bucket.testTrades to choose
+            * strategy-specific execution prices.
+            */
+            BucketTrade bucketTrade;
+            bucketTrade.gmtTime = trade.gmtTime;
+            bucketTrade.price = trade.price;
+            bucketTrade.quantity = trade.quantity;
+
+            bucket.testTrades.push_back(bucketTrade);
 
             /*
-                Buy-first baseline:
-                Use the first trade price in this bucket as the execution price.
-
-                Since the data is ordered by time inside the file, the first one
-                seen by this mapper is usually the earliest one in this chunk.
-
-                The reducer will still compare timestamps across all mappers
-                and keep the earliest timestamp.
+            * Phase 1 buy-first baseline:
+            * Keep this for now so the old Phase 1 path still works.
+            *
+            * Later, buy-first will move into ExecutionStrategy.
             */
-            if (bucket.executionGmtTime.empty() ||
-                trade.gmtTime < bucket.executionGmtTime)
+            if (bucket.executionGmtTime.empty() || trade.gmtTime < bucket.executionGmtTime) 
             {
                 bucket.executionGmtTime = trade.gmtTime;
                 bucket.executionPrice = trade.price;
             }
 
             /*
-                Market VWAP components:
-
-                    MarketVWAP =
-                        sum(price * quantity) / sum(quantity)
-
-                We store both bucket-level values and total values.
+            * Market VWAP components:
+            *
+            * MarketVWAP = sum(price * quantity) / sum(quantity)
             */
             double tradeNotional = trade.price * static_cast<double>(trade.quantity);
 
@@ -320,6 +334,16 @@ ReducedResult reduceMapperResults(const Config& config,
             reducedBucket.marketNotional += mapperBucket.marketNotional;
 
             /*
+            * Phase 2:
+            * Merge test-date trades from this mapper into the reduced bucket.
+            *
+            * We sort them after all mapper results have been merged.
+            */
+            for (size_t j = 0; j < mapperBucket.testTrades.size(); j++) {
+                reducedBucket.testTrades.push_back(mapperBucket.testTrades[j]);
+            }
+
+            /*
                 Execution price:
 
                 Keep the earliest 5/21 trade price inside each bucket.
@@ -341,7 +365,20 @@ ReducedResult reduceMapperResults(const Config& config,
         reduced.marketQtyTotal += mapperResult.marketQtyTotal;
         reduced.marketNotionalTotal += mapperResult.marketNotionalTotal;
     }
+    /*
+    * Phase 2:
+    * Sort test-date trades inside each bucket.
+    *
+    * This is important because mapper chunks are processed independently.
+    * After reducer merges them, the vector order is not guaranteed.
+    */
 
+    for (std::map<std::string, BucketAggregate>::iterator it = reduced.bucketMap.begin();
+        it != reduced.bucketMap.end();
+        ++it) {
+        std::vector<BucketTrade>& trades = it->second.testTrades;
+        std::sort(trades.begin(), trades.end(), compareBucketTradeByTime);
+    }
     return reduced;
 }
 
