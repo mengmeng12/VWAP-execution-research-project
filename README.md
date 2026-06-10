@@ -10,19 +10,9 @@ This project is not designed to generate trading alpha or predict future price m
 
 ## Current Status
 
-Phase 1 baseline is completed.
+Phase 1 completed: baseline VWAP execution engine
 
-Implemented features:
-
-- C++ project structure with separate include/ and src/ directories
-- MapReduce-style processing using multiple mapper threads
-- 15-minute intraday volume profile construction
-- Historical volume profile based on 5/1/2012–5/20/2012
-- Baseline buy-first execution schedule for 5/21/2012
-- MyVWAP calculation
-- MarketVWAP calculation
-- Difference and difference bps calculation
-- CSV output generation
+Phase 2 completed: trade-only strategy expansion and strategy comparison
 
 ## Data
 
@@ -136,39 +126,124 @@ text 0.0674 * 50,000 ≈ $3,371
 
 This result should be interpreted as execution cost relative to a benchmark, not as trading profit or loss from a directional strategy.
 
-## Output Files
+## Phase 2: Trade-Only Strategy Expansion
 
-The current Phase 1 pipeline generates:
+Phase 2 extends the Phase 1 baseline VWAP execution engine into a small multi-strategy execution framework.
 
-text outputs/volume_profile.csv outputs/execution_schedule_buy_first.csv outputs/performance_summary.csv 
+The goal is not to build a full market microstructure simulator yet. Instead, Phase 2 keeps the project trade-only and compares several simple execution-price selection rules on top of the same historical volume profile.
 
-### volume_profile.csv
+### Phase 2 Scope
 
-Contains:
+Included:
 
-text bucket, avg_qty, relative_volume, execution_price 
+- Trade-message-only execution strategies
+- Same 15-minute bucket structure as Phase 1
+- Same historical volume profile from 05/01/2012 to 05/20/2012
+- Same test date: 05/21/2012
+- Same target order: buy 50,000 shares of SPY
+- Strategy-specific execution schedules
+- Strategy comparison output
 
-### execution_schedule_buy_first.csv
+Not included yet:
 
-Contains:
+- Quote-aware execution
+- Bid-ask spread modeling
+- Order book imbalance
+- Partial fills
+- Market impact modeling
+- Aggressor-side classification
+- Regression-based strategy
 
-text bucket, avg_qty, relative_volume, order_size, execution_price, executed_value 
+These can be added in later advanced phases.
 
-### performance_summary.csv
+### Implemented Strategies
 
-Contains:
+#### 1. Buy-First
 
-text target_shares, my_vwap, market_vwap, difference, difference_bps, result 
+This is the Phase 1 baseline strategy.
 
-## Build Instructions
+For each 15-minute bucket on the test date, the strategy uses the first trade price in that bucket as the execution price.
+
+text execution_price_i = first_trade_price_i 
+
+This strategy is simple and serves as the regression check for Phase 2. After refactoring, the buy-first result should remain close to the original Phase 1 result.
+
+#### 2. Buy-Tick
+
+This is a trade-only price movement heuristic.
+
+For each bucket, the strategy looks at the first N trades. The current default is:
+
+text N = 5 
+
+If the N-th trade price is higher than the first trade price, the strategy treats this as early upward pressure and buys immediately at the first trade price. Otherwise, it waits until the N-th trade.
+
+text if price_N > price_1:     execution_price = price_1 else:     execution_price = price_N 
+
+This is only a simple heuristic. It does not use quotes, bid-ask spread, order book state, or true trade direction labels.
+
+#### 3. Sell-Tick
+
+This is also a trade-only approximation.
+
+For each bucket, the strategy scans trades from the beginning of the bucket. If it finds a price decline,
+
+text price_t < price_{t-1} 
+
+then it treats this as a sell tick and buys at the next trade price.
+
+text if price_t < price_{t-1}:     execution_price = price_{t+1} 
+
+If no sell tick is found, the strategy falls back to the first trade price in the bucket.
+
+This is not true aggressor-side classification. It is only a price-movement approximation because Phase 2 does not use quote or order book data.
+
+### Phase 2 Output Files
+
+After running the project, Phase 2 writes:
+
+text outputs/volume_profile.csv outputs/execution_schedule_buy_first.csv outputs/execution_schedule_buy_tick.csv outputs/execution_schedule_sell_tick.csv outputs/performance_summary.csv outputs/strategy_comparison.csv 
+
+The strategy-specific schedule files contain:
+
+text strategy bucket avg_qty relative_volume order_size execution_gmt_time execution_price executed_value decision_reason 
+
+The comparison file contains:
+
+text strategy my_vwap market_vwap difference difference_bps result 
+
+### Running the Project
 
 From the repository root:
 
-bash rm -rf build mkdir build cd build cmake .. make 
+bash rm -rf build cmake -S . -B build cmake --build build  ./build/vwap_execution 
 
-This creates:
+The raw data file is not included in GitHub because it is large. The expected local path is:
 
-text build/vwap_execution 
+text data/SPY_May_2012.csv 
+
+The program should be run from the repository root so that the relative data path resolves correctly.
+
+### Interpreting the Results
+
+For a buy order:
+
+text MyVWAP < MarketVWAP  => better than market VWAP MyVWAP > MarketVWAP  => worse than market VWAP 
+
+The difference in basis points is computed as:
+
+text DifferenceBps = (MyVWAP / MarketVWAP - 1) * 10000 
+
+The Phase 1 buy-first baseline result on 05/21/2012 was approximately:
+
+text My VWAP:      131.210 Market VWAP:  131.142 Difference:   0.0674 Difference bps: 5.14 
+
+This means the buy-first baseline was about 5.14 bps worse than the market VWAP for a 50,000-share buy order.
+
+Phase 2 compares whether the simple buy-tick and sell-tick heuristics improve or worsen execution relative to this baseline.
+
+
+
 
 ## Run Instructions
 
